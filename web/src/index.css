@@ -1,0 +1,393 @@
+@import "tailwindcss";
+
+/* ------------------------------------------------------------------ */
+/* 主题变量：dark 为默认，light 是"暖纸"配色                            */
+/* 所有组件与 Tailwind token 都引用这些变量，切主题只换变量、不重渲染     */
+/* ------------------------------------------------------------------ */
+:root,
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --wn-bg: #08090c;
+  --wn-bg-soft: #0d0f14;
+  --wn-surface: #0d0f14;
+  --wn-surface-2: #12151c;
+  --wn-surface-3: #171b23;
+
+  --wn-text: #f7f3ec;
+  --wn-text-2: #e0d8cb;
+  --wn-text-3: #cfc7b8;
+  --wn-text-4: #b8b0a2;
+  --wn-muted: #a49c8f;
+  --wn-faint: #857d71;
+  --wn-dim: #6b6459;
+
+  --wn-accent: #e6b57a;
+  --wn-accent-2: #c9934f;
+  --wn-sage: #8fc0ae;
+
+  --wn-line: rgba(255, 255, 255, 0.075);
+  --wn-line-strong: rgba(255, 255, 255, 0.16);
+  --wn-veil-1: rgba(255, 255, 255, 0.03);
+  --wn-veil-2: rgba(255, 255, 255, 0.055);
+  --wn-veil-3: rgba(255, 255, 255, 0.09);
+  --wn-sunken: rgba(0, 0, 0, 0.22);
+  --wn-scrim: rgba(0, 0, 0, 0.6);
+
+  --wn-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012)),
+    rgba(13, 15, 20, 0.72);
+  --wn-input-bg: rgba(255, 255, 255, 0.028);
+  --wn-input-bg-focus: rgba(255, 255, 255, 0.04);
+  --wn-btn-bg: rgba(255, 255, 255, 0.03);
+  --wn-btn-bg-hover: rgba(255, 255, 255, 0.07);
+  --wn-primary-from: #f0c690;
+  --wn-primary-to: #d8a463;
+  --wn-primary-from-hover: #f6d1a0;
+  --wn-primary-to-hover: #dfae6d;
+  --wn-primary-text: #2a1d0d;
+
+  --wn-mark: #f4d6a9;
+  --wn-mark-line: rgba(230, 181, 122, 0.75);
+  --wn-mark-hover: #ffe6c2;
+  --wn-mark-hover-bg: rgba(230, 181, 122, 0.14);
+
+  --wn-shadow-1: 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+  --wn-shadow-2: 0 26px 50px -30px rgba(0, 0, 0, 0.95);
+  --wn-inset: 0 1px 0 rgba(255, 255, 255, 0.04);
+  --wn-inset-hover: 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glow: rgba(230, 181, 122, 0.16);
+
+  --wn-atmo:
+    radial-gradient(900px 600px at 12% -8%, rgba(230, 181, 122, 0.11), transparent 60%),
+    radial-gradient(800px 520px at 100% 0%, rgba(143, 192, 174, 0.07), transparent 55%),
+    radial-gradient(1000px 700px at 50% 120%, rgba(120, 130, 255, 0.05), transparent 60%),
+    linear-gradient(180deg, #0a0b0f 0%, #08090c 55%, #07080b 100%);
+  --wn-grain: 0.035;
+}
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --wn-bg: #f4efe6;
+  --wn-bg-soft: #fbf8f2;
+  --wn-surface: #fdfbf6;
+  --wn-surface-2: #f7f2e9;
+  --wn-surface-3: #efe8da;
+
+  --wn-text: #221d16;
+  --wn-text-2: #322b22;
+  --wn-text-3: #463c30;
+  --wn-text-4: #574c3e;
+  --wn-muted: #645a4b;
+  --wn-faint: #7c7060;
+  --wn-dim: #96897a;
+
+  --wn-accent: #8f6124;
+  --wn-accent-2: #b98a4b;
+  --wn-sage: #4e7d6b;
+
+  --wn-line: rgba(42, 34, 24, 0.1);
+  --wn-line-strong: rgba(42, 34, 24, 0.2);
+  --wn-veil-1: rgba(42, 34, 24, 0.035);
+  --wn-veil-2: rgba(42, 34, 24, 0.06);
+  --wn-veil-3: rgba(42, 34, 24, 0.09);
+  --wn-sunken: rgba(42, 34, 24, 0.05);
+  --wn-scrim: rgba(48, 40, 30, 0.38);
+
+  --wn-panel-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72)),
+    rgba(253, 251, 246, 0.9);
+  --wn-input-bg: rgba(42, 34, 24, 0.04);
+  --wn-input-bg-focus: rgba(255, 255, 255, 0.9);
+  --wn-btn-bg: rgba(255, 255, 255, 0.6);
+  --wn-btn-bg-hover: rgba(255, 255, 255, 0.95);
+  --wn-primary-from: #e3b987;
+  --wn-primary-to: #c68f4e;
+  --wn-primary-from-hover: #ecc79a;
+  --wn-primary-to-hover: #d29a57;
+  --wn-primary-text: #2a1d0d;
+
+  --wn-mark: #7c4a10;
+  --wn-mark-line: rgba(143, 97, 36, 0.62);
+  --wn-mark-hover: #5c3608;
+  --wn-mark-hover-bg: rgba(143, 97, 36, 0.12);
+
+  --wn-shadow-1: 0 14px 30px -22px rgba(84, 64, 38, 0.45);
+  --wn-shadow-2: 0 22px 44px -26px rgba(84, 64, 38, 0.5);
+  --wn-inset: 0 1px 0 rgba(255, 255, 255, 0.8);
+  --wn-inset-hover: 0 1px 0 rgba(255, 255, 255, 0.9);
+  --glow: rgba(143, 97, 36, 0.14);
+
+  --wn-atmo:
+    radial-gradient(900px 620px at 10% -10%, rgba(198, 143, 78, 0.18), transparent 62%),
+    radial-gradient(760px 520px at 100% 0%, rgba(94, 140, 118, 0.12), transparent 58%),
+    radial-gradient(900px 640px at 50% 120%, rgba(176, 150, 110, 0.14), transparent 62%),
+    linear-gradient(180deg, #faf6ee 0%, #f4efe6 55%, #efe8dc 100%);
+  --wn-grain: 0.045;
+}
+
+@theme {
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", "PingFang SC", "Microsoft YaHei", ui-sans-serif,
+    system-ui, sans-serif;
+  --font-serif: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Songti SC", "STSong",
+    "Times New Roman", serif;
+
+  --color-ink-950: var(--wn-bg);
+  --color-ink-900: var(--wn-surface);
+  --color-ink-850: var(--wn-surface-2);
+  --color-ink-800: var(--wn-surface-3);
+  --color-ink-700: var(--wn-line-strong);
+
+  --color-paper-50: var(--wn-text);
+  --color-paper-100: var(--wn-text-2);
+  --color-paper-200: var(--wn-text-2);
+  --color-paper-300: var(--wn-text-3);
+  --color-paper-400: var(--wn-text-4);
+  --color-paper-500: var(--wn-muted);
+  --color-paper-600: var(--wn-faint);
+  --color-paper-700: var(--wn-dim);
+
+  --color-amber-glow: var(--wn-accent);
+  --color-amber-deep: var(--wn-accent-2);
+  --color-sage: var(--wn-sage);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--wn-bg);
+  color: var(--wn-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  transition: background-color 0.25s ease, color 0.25s ease;
+}
+
+/* 背景：暗色是"墨"，浅色是"纸" */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  background: var(--wn-atmo);
+  transition: background 0.3s ease;
+}
+
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  opacity: var(--wn-grain);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+::selection {
+  background: var(--wn-mark-hover-bg);
+  color: var(--wn-text);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--wn-line-strong);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--wn-muted);
+  background-clip: content-box;
+}
+
+@layer components {
+  .panel {
+    background: var(--wn-panel-bg);
+    border: 1px solid var(--wn-line);
+    border-radius: 20px;
+    backdrop-filter: blur(18px) saturate(120%);
+    box-shadow: var(--wn-inset), var(--wn-shadow-1);
+  }
+
+  .panel-hover {
+    transition: transform 0.28s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.28s ease,
+      box-shadow 0.28s ease;
+  }
+  .panel-hover:hover {
+    transform: translateY(-3px);
+    border-color: var(--wn-line-strong);
+    box-shadow: var(--wn-inset-hover), var(--wn-shadow-2), 0 0 0 1px var(--glow);
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    border-radius: 12px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.55rem 0.95rem;
+    border: 1px solid var(--wn-line);
+    color: var(--wn-text-2);
+    background: var(--wn-btn-bg);
+    transition: all 0.18s ease;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover {
+    background: var(--wn-btn-bg-hover);
+    border-color: var(--wn-line-strong);
+  }
+  .btn:active {
+    transform: translateY(1px);
+  }
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  .btn-primary {
+    background: linear-gradient(180deg, var(--wn-primary-from), var(--wn-primary-to));
+    color: var(--wn-primary-text);
+    border-color: rgba(255, 255, 255, 0.18);
+    box-shadow: 0 10px 24px -14px rgba(198, 143, 78, 0.9);
+  }
+  .btn-primary:hover {
+    background: linear-gradient(180deg, var(--wn-primary-from-hover), var(--wn-primary-to-hover));
+    border-color: rgba(255, 255, 255, 0.28);
+  }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--wn-text-3);
+  }
+  .btn-ghost:hover {
+    background: var(--wn-veil-1);
+    color: var(--wn-text);
+  }
+
+  .input {
+    width: 100%;
+    border-radius: 12px;
+    border: 1px solid var(--wn-line);
+    background: var(--wn-input-bg);
+    padding: 0.6rem 0.85rem;
+    color: var(--wn-text);
+    font-size: 0.9rem;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+  }
+  .input::placeholder {
+    color: var(--wn-dim);
+  }
+  .input:focus {
+    border-color: var(--wn-accent);
+    box-shadow: 0 0 0 3px var(--glow);
+    background: var(--wn-input-bg-focus);
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    border-radius: 999px;
+    border: 1px solid var(--wn-line);
+    background: var(--wn-veil-1);
+    padding: 0.16rem 0.55rem;
+    font-size: 0.72rem;
+    color: var(--wn-text-3);
+    letter-spacing: 0.02em;
+  }
+
+  .label {
+    font-size: 0.7rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--wn-faint);
+  }
+
+  .serif {
+    font-family: var(--font-serif);
+  }
+
+  /* 语义"透明层"，替代写死的 bg-white/[0.0x]，才能跟随主题 */
+  .veil-1 {
+    background-color: var(--wn-veil-1);
+  }
+  .veil-2 {
+    background-color: var(--wn-veil-2);
+  }
+  .veil-3 {
+    background-color: var(--wn-veil-3);
+  }
+  .sunken {
+    background-color: var(--wn-sunken);
+  }
+  .scrim {
+    background-color: var(--wn-scrim);
+  }
+  .hairline {
+    border-color: var(--wn-line);
+  }
+  .hv-veil:hover {
+    background-color: var(--wn-veil-2);
+  }
+  .hv-line:hover {
+    border-color: var(--wn-line-strong);
+  }
+
+  /* 划线词：茶金色下划线 + 轻微提亮 */
+  .marked-word {
+    color: var(--wn-mark);
+    text-decoration: underline;
+    text-decoration-color: var(--wn-mark-line);
+    text-decoration-thickness: 2px;
+    text-underline-offset: 5px;
+    border-radius: 4px;
+    padding: 0 2px;
+    transition: background 0.18s ease, color 0.18s ease;
+    cursor: pointer;
+  }
+  .marked-word:hover {
+    background: var(--wn-mark-hover-bg);
+    color: var(--wn-mark-hover);
+  }
+
+  .clickable-word {
+    border-radius: 4px;
+    padding: 0 1px;
+    transition: background 0.15s ease;
+    cursor: pointer;
+  }
+  .clickable-word:hover {
+    background: var(--wn-veil-2);
+  }
+
+  .fade-mask {
+    mask-image: linear-gradient(180deg, #000 70%, transparent 100%);
+  }
+}
+
+@keyframes floatIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

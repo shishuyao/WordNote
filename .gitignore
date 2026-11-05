@@ -1,0 +1,15 @@
+data/audio/
+data/logs/
+data/wordnote.db*
+data/secret.key
+data/ecdict.db
+data/ecdict.csv
+data/*.tmp
+data/local.json
+web/shots/
+.venv/
+node_modules/
+web/dist/
+__pycache__/
+*.pyc
+*.log

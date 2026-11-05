@@ -1,0 +1,12 @@
+{
+  "_comment": "本机部署配置（复制 local.example.json 到 data/local.json 后按需修改；该文件不进 git）",
+  "speech": {
+    "server": "D:\\path\\to\\audiocpp\\app\\audiocpp_server.exe",
+    "cli": "D:\\path\\to\\audiocpp\\app\\audiocpp_cli.exe",
+    "model_path": "D:\\path\\to\\audiocpp\\models\\Supertonic-3-GGUF",
+    "backend": "cpu",
+    "threads": 8,
+    "watchdog": "D:\\path\\to\\watchdog.py",
+    "watchdog_python": "C:\\path\\to\\python.exe"
+  }
+}
