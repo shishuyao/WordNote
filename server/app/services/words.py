@@ -11,7 +11,7 @@ import time
 from typing import Any
 
 from ..db import execute, query, query_one
-from .dictlookup import is_useful, lookup_word, short_meaning
+from .dictlookup import is_useful, lookup_word, normalize_headword, short_meaning
 from .srs import introduce
 
 
@@ -69,7 +69,12 @@ def _payload_fields(payload: dict) -> dict:
         "forms": json.dumps(payload.get("forms") or {}, ensure_ascii=False),
         "dict_json": json.dumps(payload, ensure_ascii=False),
         "source": payload.get("source") or "lookup",
-        "state": "ok" if is_useful(payload) else "pending",
+        # ok=有释义；pending=网络没通（稍后自动重试）；missing=词典确实没收录（不再重试）
+        "state": (
+            "ok"
+            if is_useful(payload)
+            else ("missing" if payload.get("online_checked") else "pending")
+        ),
     }
 
 
@@ -88,11 +93,11 @@ def _apply_payload(word_id: int, payload: dict, now: int) -> None:
 
 async def upsert_word(headword: str, *, source: str = "lookup", force: bool = False) -> dict:
     """查词并写库（已存在则刷新词典快照，保留复习进度与手写备注）。"""
-    headword = (headword or "").strip()
+    headword = normalize_headword(headword)
     if not headword:
         raise ValueError("单词为空")
     payload = await lookup_word(headword, force=force)
-    head = (payload.get("headword") or headword).strip().lower()
+    head = normalize_headword(payload.get("headword") or headword)
     existing = query_one("SELECT * FROM words WHERE headword=?", (head,))
     now = _now()
 

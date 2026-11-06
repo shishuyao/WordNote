@@ -393,7 +393,7 @@ export default function WordDetail() {
           {/* 词源 / AI 讲解 */}
           {dict?.ai_note ? (
             <section className="panel px-5 py-4">
-              <button className="flex w-full items-center justify-between" onClick={() => setShowAi((v) => v)}>
+              <button className="flex w-full items-center justify-between" onClick={() => setShowAi((v) => !v)}>
                 <span className="label">AI 讲解 / 搭配</span>
                 <ChevronDown size={14} className={`text-paper-600 transition ${showAi ? "rotate-180" : ""}`} />
               </button>

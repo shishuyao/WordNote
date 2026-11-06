@@ -4,6 +4,7 @@ import { Eraser, Languages, Loader2, Save, Search, Sparkles, Wand2 } from "lucid
 import { api } from "../api";
 import type { Dict } from "../types";
 import { PageTitle, PlayButton, Spinner, useToast } from "../components/ui";
+import { selectionOffsets, trimRange } from "../lib/selection";
 
 type Mark = { surface: string; char_start: number; char_end: number };
 
@@ -53,6 +54,8 @@ function SentenceComposer({ onSaved }: { onSaved: (id: number) => void }) {
   const [preview, setPreview] = useState<Record<string, Dict | "loading" | "error">>({});
   const [busy, setBusy] = useState(false);
   const [translating, setTranslating] = useState(false);
+  const [phraseSel, setPhraseSel] = useState<{ start: number; end: number; surface: string } | null>(null);
+  const previewRef = useRef<HTMLParagraphElement>(null);
 
   const keyOf = (surface: string) => surface.toLowerCase();
 
@@ -75,6 +78,34 @@ function SentenceComposer({ onSaved }: { onSaved: (id: number) => void }) {
       void fetchPreview(surface);
       return [...prev, { surface, char_start: start, char_end: end }];
     });
+  };
+
+  const readSelection = () => {
+    if (!previewRef.current) return;
+    const offs = selectionOffsets(previewRef.current);
+    if (!offs) return;
+    const trimmed = trimRange(text, offs.start, offs.end);
+    if (!trimmed) {
+      setPhraseSel(null);
+      return;
+    }
+    const words = trimmed.surface.trim().split(/\s+/).filter(Boolean);
+    if (words.length < 2) {
+      setPhraseSel(null);
+      return;
+    }
+    setPhraseSel(trimmed);
+  };
+
+  const addPhraseMark = () => {
+    if (!phraseSel) return;
+    const mark = { surface: phraseSel.surface, char_start: phraseSel.start, char_end: phraseSel.end };
+    setMarks((prev) =>
+      prev.some((m) => m.char_start === mark.char_start && m.char_end === mark.char_end) ? prev : [...prev, mark],
+    );
+    void fetchPreview(mark.surface);
+    setPhraseSel(null);
+    window.getSelection()?.removeAllRanges();
   };
 
   const translateNow = async () => {
@@ -137,9 +168,31 @@ function SentenceComposer({ onSaved }: { onSaved: (id: number) => void }) {
           {text.trim() && (
             <div className="mt-3 rounded-xl border border-dashed hairline sunken px-4 py-3">
               <div className="mb-1.5 text-[11px] text-paper-600">在上一步输入框里点词不方便？在下面这行里点：</div>
-              <p className="serif text-[19px] leading-[1.75] text-paper-50">
+              <p
+                ref={previewRef}
+                className="serif text-[19px] leading-[1.75] text-paper-50"
+                onMouseUp={readSelection}
+                onTouchEnd={() => window.setTimeout(readSelection, 40)}
+              >
                 {renderInteractive(text, marks, toggleWord)}
               </p>
+              {phraseSel && (
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] text-amber-glow">已选中「{phraseSel.surface}」</span>
+                  <button className="btn btn-primary px-2.5 py-1 text-[11px]" onClick={addPhraseMark}>
+                    加入划线
+                  </button>
+                  <button
+                    className="btn btn-ghost px-2 py-1 text-[11px]"
+                    onClick={() => {
+                      setPhraseSel(null);
+                      window.getSelection()?.removeAllRanges();
+                    }}
+                  >
+                    取消
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -252,6 +305,8 @@ function renderInteractive(text: string, marks: Mark[], toggle: (s: string, a: n
       <span
         key={`${start}-${end}`}
         role="button"
+        data-word={m[0]}
+        data-offset={start}
         onClick={() => toggle(m[0], start, end)}
         className={marked ? "marked-word" : "clickable-word"}
       >

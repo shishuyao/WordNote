@@ -23,6 +23,7 @@ from ..db import cache_lookup, cached_lookup
 from . import ecdict
 
 POS_RE = re.compile(r"^((?:[a-z]{1,4}\.)(?:\s*&\s*[a-z]{1,4}\.)*)\s*")
+WS_RE = re.compile(r"\s+")
 TAG_RE = re.compile(r"<[^>]+>")
 
 
@@ -315,41 +316,53 @@ def normalize_dictapi(payload: list, headword: str) -> dict:
 
 
 def is_useful(normalized: dict) -> bool:
-    return bool(normalized.get("senses") or normalized.get("defs_en"))
+    return bool(normalized.get("senses") or normalized.get("defs_en") or normalized.get("web_meanings"))
 
 
-async def _fetch_youdao(client: httpx.AsyncClient, word: str) -> dict | None:
+async def _fetch_youdao(client: httpx.AsyncClient, word: str) -> tuple[bool, dict | None]:
+    """返回 (是否真正问到了词典, 数据)。True 表示"问过了"，哪怕它没收录。"""
     try:
         r = await client.get(YOUDAO_URL, params={"q": word})
         if r.status_code != 200:
-            return None
+            return False, None
         data = r.json()
         if not isinstance(data, dict):
-            return None
+            return True, None
         if not (data.get("ec") or data.get("ee") or data.get("web_trans")):
-            return None
-        return data
+            return True, None
+        return True, data
     except (httpx.HTTPError, ValueError):
-        return None
+        return False, None
 
 
-async def _fetch_dictapi(client: httpx.AsyncClient, word: str) -> list | None:
+async def _fetch_dictapi(client: httpx.AsyncClient, word: str) -> tuple[bool, list | None]:
+    """返回 (是否真正问到了词典, 数据)。404 也算"问过了但没收录"。"""
     try:
         r = await client.get(f"{DICTAPI_URL}/{word}")
-        if r.status_code != 200:
-            return None
+        if r.status_code not in (200, 404):
+            return False, None
+        if r.status_code == 404:
+            return True, None
         data = r.json()
-        return data if isinstance(data, list) else None
+        return True, (data if isinstance(data, list) else None)
     except (httpx.HTTPError, ValueError):
-        return None
+        return False, None
+
+
+def normalize_headword(text: str) -> str:
+    """统一词条外形：去首尾标点、把内部连续空白压成一个空格（短语要保留空格）。"""
+    text = WS_RE.sub(" ", (text or "").strip()).strip(".,;:!?\"'()[]{}").strip()
+    return text.lower()
 
 
 async def lookup_word(headword: str, *, force: bool = False) -> dict:
     """查词：缓存 →（在线时）有道 → 离线词库 ECDICT → dictionaryapi → 空。
 
-    离线模式（WORDNOTE_OFFLINE=1）只查本地 ECDICT，不发任何外网请求。
+    短语（"free up"）与单词走同一条链路；离线模式（WORDNOTE_OFFLINE=1）只查本地 ECDICT。
+    返回的 payload 里 online_checked=True 表示"确实问过词典但没有结果"，
+    上层据此区分「暂时没网」和「词典没收录」，避免没收录的词被无限重试。
     """
-    headword = headword.strip().strip(".,;:!?\"'()[]{}").lower()
+    headword = normalize_headword(headword)
     if not headword:
         return normalize_dictapi([], headword)
 
@@ -362,14 +375,16 @@ async def lookup_word(headword: str, *, force: bool = False) -> dict:
         local = ecdict.lookup_local(headword)
         if local and is_useful(local):
             return local
-        return _empty(headword, "离线模式：本地词库（ECDICT）未收录该词")
+        return _empty(headword, "离线模式：本地词库（ECDICT）未收录该词，可手动补释义")
 
+    online_checked = False
     async with httpx.AsyncClient(
         timeout=httpx.Timeout(6.0, connect=4.0),
         headers={"User-Agent": HTTP_UA},
         follow_redirects=True,
     ) as client:
-        raw = await _fetch_youdao(client, headword)
+        ok, raw = await _fetch_youdao(client, headword)
+        online_checked = online_checked or ok
         if raw:
             normalized = normalize_youdao(raw, headword)
             if is_useful(normalized):
@@ -379,14 +394,20 @@ async def lookup_word(headword: str, *, force: bool = False) -> dict:
         local = ecdict.lookup_local(headword)
         if local and is_useful(local):
             return local
-        fallback = await _fetch_dictapi(client, headword)
+        ok, fallback = await _fetch_dictapi(client, headword)
+        online_checked = online_checked or ok
         if fallback:
             normalized = normalize_dictapi(fallback, headword)
             if is_useful(normalized):
                 cache_lookup(headword, normalized)
                 return normalized
 
-    return _empty(headword, "词典未收录该词，可手动补释义")
+    result = _empty(
+        headword,
+        "词典未收录该词，可手动补释义" if online_checked else "网络不可用，稍后自动重试",
+    )
+    result["online_checked"] = online_checked
+    return result
 
 
 def _empty(headword: str, note: str) -> dict:
@@ -413,4 +434,7 @@ def short_meaning(normalized: dict, limit: int = 90) -> str:
             text = d.get("def") or ""
             if text:
                 break
+    if not text:
+        web = [w.get("value") or "" for w in (normalized.get("web_meanings") or [])]
+        text = "；".join([w for w in web if w][:2])
     return text[:limit]

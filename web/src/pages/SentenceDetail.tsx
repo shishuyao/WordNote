@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
 import { api } from "../api";
 import type { Annotation, Sentence } from "../types";
 import SentenceText from "../components/SentenceText";
+import { selectionOffsets, trimRange } from "../lib/selection";
 import { Modal, PageTitle, PlayButton, Skeleton, Spinner, useToast } from "../components/ui";
 import { useVoice } from "../auth";
 
@@ -37,6 +38,8 @@ export default function SentenceDetail() {
   const [busy, setBusy] = useState(false);
   const [peek, setPeek] = useState<Annotation | null>(null);
   const [tagDraft, setTagDraft] = useState("");
+  const [phraseSel, setPhraseSel] = useState<{ start: number; end: number; surface: string } | null>(null);
+  const sentenceRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     try {
@@ -79,6 +82,44 @@ export default function SentenceDetail() {
       push("已取消划线", "ok");
     } catch (e) {
       push(e instanceof Error ? e.message : "操作失败", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const readSelection = () => {
+    if (!marking || !item || !sentenceRef.current) return;
+    const offs = selectionOffsets(sentenceRef.current);
+    if (!offs) return;
+    const trimmed = trimRange(item.text, offs.start, offs.end);
+    if (!trimmed) {
+      setPhraseSel(null);
+      return;
+    }
+    const words = trimmed.surface.trim().split(/\s+/).filter(Boolean);
+    // 只选中一个词时交给单击处理，避免和点击划词打架
+    if (words.length < 2) {
+      setPhraseSel(null);
+      return;
+    }
+    setPhraseSel(trimmed);
+  };
+
+  const addPhrase = async () => {
+    if (!item || !phraseSel) return;
+    setBusy(true);
+    try {
+      const r = await api.sentences.addAnnotation(item.id, {
+        surface: phraseSel.surface,
+        char_start: phraseSel.start,
+        char_end: phraseSel.end,
+      });
+      setItem(r.item);
+      push(`已划线短语：${phraseSel.surface}`, "ok");
+      setPhraseSel(null);
+      window.getSelection()?.removeAllRanges();
+    } catch (e) {
+      push(e instanceof Error ? e.message : "短语划线失败", "err");
     } finally {
       setBusy(false);
     }
@@ -154,7 +195,7 @@ export default function SentenceDetail() {
           <ArrowLeft size={14} /> 返回摘抄墙
         </button>
         <div className="flex items-center gap-2">
-          <button className={`btn py-1.5 text-[12px] ${marking ? "border-amber-glow/45 bg-amber-glow/10 text-amber-glow" : ""}`} onClick={() => setMarking((m) => m)}>
+          <button className={`btn py-1.5 text-[12px] ${marking ? "border-amber-glow/45 bg-amber-glow/10 text-amber-glow" : ""}`} onClick={() => { setMarking((m) => !m); setPhraseSel(null); }}>
             <ScanText size={13} /> {marking ? "划线模式：开" : "编辑划线"}
           </button>
           <PlayButton text={item.text} voice={voice} label="朗读整句" />
@@ -181,17 +222,42 @@ export default function SentenceDetail() {
           </span>
         </div>
 
-        <SentenceText
-          text={item.text}
-          annotations={item.annotations}
-          interactive={marking}
-          onWordClick={onWordClick}
-          className="serif text-[22px] leading-[1.8] text-paper-50 sm:text-[26px] sm:leading-[1.75]"
-        />
+        <div
+          ref={sentenceRef}
+          onMouseUp={readSelection}
+          onTouchEnd={() => window.setTimeout(readSelection, 40)}
+        >
+          <SentenceText
+            text={item.text}
+            annotations={item.annotations}
+            interactive={marking}
+            onWordClick={onWordClick}
+            className="serif text-[22px] leading-[1.8] text-paper-50 sm:text-[26px] sm:leading-[1.75]"
+          />
+        </div>
+
+        {phraseSel && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-amber-glow/35 bg-amber-glow/[0.08] px-3 py-2">
+            <span className="text-[12px] text-amber-glow">已选中「{phraseSel.surface}」</span>
+            <button className="btn btn-primary px-3 py-1 text-[12px]" onClick={addPhrase} disabled={busy}>
+              <ScanText size={12} /> 标为短语
+            </button>
+            <button
+              className="btn btn-ghost px-2 py-1 text-[11px]"
+              onClick={() => {
+                setPhraseSel(null);
+                window.getSelection()?.removeAllRanges();
+              }}
+            >
+              取消
+            </button>
+          </div>
+        )}
 
         {marking && (
-          <div className="mt-4 rounded-xl border border-dashed border-amber-glow/25 bg-amber-glow/[0.04] px-3 py-2 text-[12px] text-amber-glow/80">
-            划线模式：点任意单词即可划线（已划的词点击可看释义）。再点一次「编辑划线」退出。
+          <div className="mt-4 rounded-xl border border-dashed border-amber-glow/25 bg-amber-glow/[0.04] px-3 py-2 text-[12px] leading-relaxed text-amber-glow/80">
+            划线模式：<b>点单个词</b>＝划这个词；<b>按住拖动选中多个词</b>（如 free up / to do）松手后点「标为短语」。
+            已划的词点击可看释义。再点一次「编辑划线」退出。
           </div>
         )}
 
