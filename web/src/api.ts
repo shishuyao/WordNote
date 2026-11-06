@@ -81,6 +81,7 @@ export const api = {
     list: (params: { q?: string; tag?: string; limit?: number; offset?: number; order?: string } = {}) =>
       request<{ total: number; items: Sentence[] }>(`/sentences${qs(params)}`),
     get: (id: number) => request<{ item: Sentence }>(`/sentences/${id}`),
+    tags: () => request<{ items: { tag: string; count: number }[] }>("/sentences/tags/all"),
     create: (payload: {
       text: string;
       translation?: string;

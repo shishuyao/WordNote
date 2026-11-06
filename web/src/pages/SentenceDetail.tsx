@@ -9,6 +9,7 @@ import {
   ScanText,
   Sparkles,
   Trash2,
+  X,
   Volume2,
 } from "lucide-react";
 import { api } from "../api";
@@ -37,7 +38,8 @@ export default function SentenceDetail() {
   const [marking, setMarking] = useState(false);
   const [busy, setBusy] = useState(false);
   const [peek, setPeek] = useState<Annotation | null>(null);
-  const [tagDraft, setTagDraft] = useState("");
+  const [tagInput, setTagInput] = useState("");
+  const [allTags, setAllTags] = useState<{ tag: string; count: number }[]>([]);
   const [phraseSel, setPhraseSel] = useState<{ start: number; end: number; surface: string } | null>(null);
   const sentenceRef = useRef<HTMLDivElement>(null);
 
@@ -46,7 +48,6 @@ export default function SentenceDetail() {
       const r = await api.sentences.get(sid);
       setItem(r.item);
       setDraft(r.item.translation ?? "");
-      setTagDraft(r.item.tags.join(", "));
     } catch (e) {
       push(e instanceof Error ? e.message : "加载失败", "err");
     }
@@ -144,10 +145,7 @@ export default function SentenceDetail() {
     if (!item) return;
     setBusy(true);
     try {
-      const r = await api.sentences.patch(item.id, {
-        translation: draft,
-        tags: tagDraft.split(/[,，\s]+/).map((t) => t.replace(/^#/, "")).filter(Boolean),
-      });
+      const r = await api.sentences.patch(item.id, { translation: draft });
       setItem(r.item);
       setEditing(false);
       push("已保存", "ok");
@@ -156,6 +154,42 @@ export default function SentenceDetail() {
     } finally {
       setBusy(false);
     }
+  };
+
+  useEffect(() => {
+    api.sentences
+      .tags()
+      .then((r) => setAllTags(r.items))
+      .catch(() => {});
+  }, [item?.tags]);
+
+  const applyTags = async (next: string[]) => {
+    if (!item) return;
+    setBusy(true);
+    try {
+      const r = await api.sentences.patch(item.id, { tags: next });
+      setItem(r.item);
+    } catch (e) {
+      push(e instanceof Error ? e.message : "标签保存失败", "err");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addTag = async (raw: string) => {
+    if (!item) return;
+    const tag = raw.trim().replace(/^#/, "").replace(/[,，\s]+/g, "");
+    if (!tag) return;
+    setTagInput("");
+    if (item.tags.includes(tag)) return;
+    await applyTags([...item.tags, tag]);
+    push(`已加标签：${tag}`, "ok");
+  };
+
+  const removeTag = async (tag: string) => {
+    if (!item) return;
+    await applyTags(item.tags.filter((x) => x !== tag));
+    push(`已删除标签：${tag}`, "ok");
   };
 
   const grade = async (q: number) => {
@@ -353,13 +387,60 @@ export default function SentenceDetail() {
         </div>
       </section>
 
-      {/* 标签编辑 */}
-      <div className="panel mt-5 flex flex-wrap items-center gap-3 px-5 py-3.5">
-        <span className="label">标签</span>
-        <input className="input w-auto min-w-[220px] flex-1 py-1.5 text-[12px]" value={tagDraft} onChange={(e) => setTagDraft(e.target.value)} placeholder="daily, 职场, 文学" />
-        <button className="btn py-1.5 text-[12px]" onClick={saveTranslation} disabled={busy}>
-          <Check size={12} /> 保存标签
-        </button>
+      {/* 标签 */}
+      <div className="panel mt-5 px-5 py-3.5">
+        <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+          <span className="label">标签</span>
+          <span className="text-[11px] text-paper-600">点 × 删除 · 回车添加 · 改完即时保存</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {item.tags.length === 0 && <span className="text-[12px] text-paper-600">还没有标签</span>}
+          {item.tags.map((tag) => (
+            <span key={tag} className="chip pr-0.5">
+              #{tag}
+              <button
+                className="ml-0.5 grid h-4 w-4 place-items-center rounded-full text-paper-600 transition hover:bg-rose-500/15 hover:text-rose-300"
+                title={`删除标签「${tag}」`}
+                aria-label={`删除标签 ${tag}`}
+                onClick={() => void removeTag(tag)}
+                disabled={busy}
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+          <input
+            className="input w-36 py-1 text-[12px]"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === "," || e.key === "，") {
+                e.preventDefault();
+                void addTag(tagInput);
+              }
+            }}
+            onBlur={() => tagInput.trim() && void addTag(tagInput)}
+            placeholder="加标签，回车"
+          />
+        </div>
+        {allTags.filter((x) => !item.tags.includes(x.tag)).length > 0 && (
+          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-paper-600">常用：</span>
+            {allTags
+              .filter((x) => !item.tags.includes(x.tag))
+              .slice(0, 8)
+              .map((x) => (
+                <button
+                  key={x.tag}
+                  className="chip transition hover:border-amber-glow/45 hover:text-amber-glow"
+                  onClick={() => void addTag(x.tag)}
+                >
+                  #{x.tag}
+                  <span className="text-paper-600">{x.count}</span>
+                </button>
+              ))}
+          </div>
+        )}
       </div>
 
       <Modal open={!!peek} onClose={() => setPeek(null)} title={peek?.headword || peek?.surface || ""} width="max-w-sm">

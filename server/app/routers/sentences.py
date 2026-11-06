@@ -103,6 +103,25 @@ def list_sentences(
     return {"total": total, "items": [sentence_dict(r) for r in rows]}
 
 
+@router.get("/tags/all")
+def list_tags(user: dict = Depends(current_user)) -> dict:
+    """所有句子用过的标签 + 次数，供"常用标签"建议与筛选。"""
+    counter: dict[str, int] = {}
+    for row in query("SELECT tags FROM sentences"):
+        try:
+            tags = json.loads(row["tags"] or "[]")
+        except (ValueError, TypeError):
+            tags = []
+        if not isinstance(tags, list):
+            continue
+        for tag in tags:
+            if isinstance(tag, str) and tag.strip():
+                key = tag.strip()
+                counter[key] = counter.get(key, 0) + 1
+    items = [{"tag": k, "count": v} for k, v in sorted(counter.items(), key=lambda x: (-x[1], x[0]))]
+    return {"items": items}
+
+
 @router.post("")
 async def create_sentence(payload: SentenceIn, user: dict = Depends(current_user)) -> dict:
     text = payload.text.strip()

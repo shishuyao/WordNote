@@ -12,18 +12,28 @@ export default function Dashboard() {
   const { push } = useToast();
   const [stats, setStats] = useState<Stats | null>(null);
   const [sentences, setSentences] = useState<Sentence[] | null>(null);
+  const [tags, setTags] = useState<{ tag: string; count: number }[]>([]);
+  const [tagFilter, setTagFilter] = useState("");
 
   useEffect(() => {
     let alive = true;
     api.stats().then((s) => alive && setStats(s)).catch(() => {});
+    api.sentences.tags().then((r) => alive && setTags(r.items)).catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
     api.sentences
-      .list({ limit: 8 })
+      .list({ limit: 8, tag: tagFilter || undefined })
       .then((r) => alive && setSentences(r.items))
       .catch(() => alive && setSentences([]));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [tagFilter]);
 
   const removeSentence = async (id: number) => {
     if (!confirm("删除这句摘抄？划线记录会一起删掉（单词条目保留在单词本里）。")) return;
@@ -66,6 +76,30 @@ export default function Dashboard() {
           </div>
         }
       />
+
+      {tags.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <span className="text-[11px] text-paper-600">按标签：</span>
+          <button
+            onClick={() => setTagFilter("")}
+            className={`chip transition ${tagFilter === "" ? "border-amber-glow/50 text-amber-glow" : ""}`}
+          >
+            全部
+          </button>
+          {tags.slice(0, 12).map((t) => (
+            <button
+              key={t.tag}
+              onClick={() => setTagFilter(t.tag === tagFilter ? "" : t.tag)}
+              className={`chip transition ${
+                tagFilter === t.tag ? "border-amber-glow/50 text-amber-glow" : "hover:border-amber-glow/40"
+              }`}
+            >
+              #{t.tag}
+              <span className="text-paper-600">{t.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* 数据条 */}
       <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
