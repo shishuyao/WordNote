@@ -146,7 +146,7 @@ export const api = {
   },
 
   tts: {
-    url: (text: string, voice?: string) => `${BASE}/tts${qs({ text, voice })}`,
+    url: (text: string, voice?: string, speed?: number) => `${BASE}/tts${qs({ text, voice, speed })}`,
     status: () => request<TtsStatus>("/tts/status"),
     voices: () => request<{ items: { id: string; label: string }[]; default: string }>("/tts/voices"),
     clearCache: () => request<{ removed: number }>("/tts/cache", { method: "DELETE" }),

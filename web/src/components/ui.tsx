@@ -114,12 +114,14 @@ export function Stat({ label, value, hint, accent }: { label: string; value: Rea
 export function PlayButton({
   text,
   voice,
+  speed,
   size = "md",
   label,
   className = "",
 }: {
   text: string;
   voice?: string;
+  speed?: number;
   size?: "sm" | "md" | "lg";
   label?: string;
   className?: string;
@@ -144,7 +146,10 @@ export function PlayButton({
     }
     setState("loading");
     try {
-      const audio = new Audio(api.tts.url(text.slice(0, 400), voice));
+      // 语速优先用调用方给的；否则读本机偏好（设置页保存时写入）
+      const stored = typeof window !== "undefined" ? localStorage.getItem("wn.speed") : null;
+      const rate = speed ?? (stored ? Number(stored) : undefined);
+      const audio = new Audio(api.tts.url(text.slice(0, 400), voice, rate));
       audioRef.current = audio;
       audio.onended = () => setState("idle");
       audio.onerror = () => {

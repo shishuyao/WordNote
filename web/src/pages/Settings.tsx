@@ -37,20 +37,25 @@ export default function SettingsPage() {
   const [newPwd, setNewPwd] = useState("");
   const [importing, setImporting] = useState(false);
   const [offline, setOffline] = useState<OfflineStatus | null>(null);
+  const [speed, setSpeed] = useState(1);
+  const speedTimer = useRef<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadAll = async () => {
     try {
-      const [v, s, e, o] = await Promise.all([
+      const [v, s, e, o, cfg] = await Promise.all([
         api.tts.voices(),
         api.tts.status(),
         api.extra(),
         api.offline.status(),
+        api.settings.get(),
       ]);
       setVoices(v.items);
       setStatus(s);
       setExtra(e);
       setOffline(o);
+      const saved = Number(cfg.values.tts_speed);
+      if (Number.isFinite(saved) && saved > 0) setSpeed(saved);
       if (!localStorage.getItem("wn.voice") && v.default) setVoice(v.default);
     } catch (err) {
       push(err instanceof Error ? err.message : "加载失败", "err");
@@ -69,6 +74,16 @@ export default function SettingsPage() {
     } catch {
       /* 本地生效即可 */
     }
+  };
+
+  const changeSpeed = (value: number) => {
+    const v = Math.min(1.5, Math.max(0.5, Math.round(value * 100) / 100));
+    setSpeed(v);
+    localStorage.setItem("wn.speed", String(v));
+    if (speedTimer.current) window.clearTimeout(speedTimer.current);
+    speedTimer.current = window.setTimeout(() => {
+      api.settings.put({ tts_speed: v.toFixed(2) }).catch(() => push("速度保存失败", "err"));
+    }, 400);
   };
 
   const clearAudio = async () => {
@@ -169,8 +184,37 @@ export default function SettingsPage() {
                 </option>
               ))}
             </select>
-            <PlayButton text="Serendipity is the art of making happy accidents." voice={voice} size="md" label="试听" />
+            <PlayButton text="Serendipity is the art of making happy accidents." voice={voice} speed={speed} size="md" label="试听" />
           </div>
+
+          <label className="label mb-2 block">朗读速度</label>
+          <div className="flex items-center gap-3">
+            <input
+              type="range"
+              min={0.5}
+              max={1.5}
+              step={0.05}
+              value={speed}
+              onChange={(e) => changeSpeed(Number(e.target.value))}
+              className="h-1.5 flex-1 accent-[var(--wn-accent)]"
+            />
+            <span className="w-12 text-right text-[12px] text-paper-200">{speed.toFixed(2)}×</span>
+            <PlayButton text="Slow is smooth, smooth is fast." voice={voice} speed={speed} size="sm" />
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {[0.7, 0.8, 0.85, 0.9, 1].map((v) => (
+              <button
+                key={v}
+                className={`chip transition ${Math.abs(speed - v) < 0.001 ? "border-amber-glow/50 text-amber-glow" : "hover:border-amber-glow/40"}`}
+                onClick={() => changeSpeed(v)}
+              >
+                {v}×
+              </button>
+            ))}
+          </div>
+          <p className="mb-3 mt-2 text-[11px] leading-relaxed text-paper-600">
+            0.5×（最慢）～1.5×（最快）。学习建议 0.85–0.95×；每个速度会各自缓存一份音频，切回旧速度不用重新合成。
+          </p>
           <p className="mb-3 text-[11px] leading-relaxed text-paper-600">
             发音走后端 <code className="text-paper-400">{status?.server || "127.0.0.1:8090"}</code> 的 audiocpp 常驻服务，
             同一句/同一个词只会合成一次，之后直接读本地 WAV。

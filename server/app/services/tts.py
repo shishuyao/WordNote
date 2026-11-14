@@ -14,6 +14,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 import wave
 from pathlib import Path
@@ -55,9 +56,62 @@ def clean_text(text: str) -> str:
     return text[:400]
 
 
-def cache_path(text: str, voice: str) -> Path:
-    key = hashlib.sha1(f"{voice}|en|{text}".encode("utf-8")).hexdigest()
+FFMPEG = os.environ.get("WORDNOTE_FFMPEG", "ffmpeg")
+SPEED_MIN, SPEED_MAX = 0.5, 1.5
+
+
+def normalize_speed(value: float | str | None) -> float:
+    try:
+        speed = float(value) if value is not None else 1.0
+    except (TypeError, ValueError):
+        speed = 1.0
+    return round(max(SPEED_MIN, min(SPEED_MAX, speed)), 2)
+
+
+def default_speed() -> float:
+    """用户设置的朗读速度（1.0 为原始速度）。"""
+    from ..db import get_setting
+
+    return normalize_speed(get_setting("tts_speed") or 1.0)
+
+
+def cache_path(text: str, voice: str, speed: float = 1.0) -> Path:
+    """原始速度用老 key（兼容既有缓存）；非 1.0 的每个速度单独缓存。"""
+    speed = normalize_speed(speed)
+    if abs(speed - 1.0) < 0.005:
+        raw = f"{voice}|en|{text}"
+    else:
+        raw = f"{voice}|en|s{speed:.2f}|{text}"
+    key = hashlib.sha1(raw.encode("utf-8")).hexdigest()
     return AUDIO_DIR / f"{key}.wav"
+
+
+async def _atempo(data: bytes, speed: float) -> bytes:
+    """用 ffmpeg atempo 变速（保持音高）。"""
+    with tempfile.TemporaryDirectory(prefix="wn-tts-") as tmp:
+        src = Path(tmp) / "in.wav"
+        dst = Path(tmp) / "out.wav"
+        src.write_bytes(data)
+        proc = await asyncio.create_subprocess_exec(
+            FFMPEG,
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-y",
+            "-i",
+            str(src),
+            "-filter:a",
+            f"atempo={speed:.2f}",
+            "-ar",
+            "44100",
+            str(dst),
+            stdout=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        _, stderr = await proc.communicate()
+        if proc.returncode != 0 or not dst.exists():
+            raise TTSError(f"变速失败：{(stderr or b'').decode('utf-8', 'ignore')[-160:]}")
+        return dst.read_bytes()
 
 
 def _env_no_proxy() -> dict:
@@ -223,18 +277,8 @@ async def ensure_server(grace: float = 6.0) -> bool:
     return False
 
 
-async def synthesize(text: str, voice: str = "F5") -> dict:
-    """返回 {path, seconds, engine, cached}"""
-    cleaned = clean_text(text)
-    path = cache_path(cleaned, voice)
-    if path.exists() and path.stat().st_size > 200:
-        return {
-            "path": path,
-            "seconds": wav_seconds(path.read_bytes()[:400000]),
-            "engine": "cache",
-            "cached": True,
-        }
-
+async def _synth_raw(cleaned: str, voice: str) -> tuple[bytes, str]:
+    """原始语速合成（服务优先，崩溃重启重试，最后回退 CLI）。"""
     async with _sem:
         engine = "server"
         data: bytes | None = None
@@ -243,7 +287,6 @@ async def synthesize(text: str, voice: str = "F5") -> dict:
                 raise TTSError("audiocpp 服务未运行且自动拉起失败")
             data = await _synth_server(cleaned, voice)
         except (TTSError, httpx.HTTPError) as exc:
-            # 服务中途崩了：重启后重试一次，仍不行才回退 CLI
             if await ensure_server():
                 try:
                     data = await _synth_server(cleaned, voice)
@@ -255,12 +298,52 @@ async def synthesize(text: str, voice: str = "F5") -> dict:
                     data = await _synth_cli(cleaned, voice)
                 except TTSError:
                     raise TTSError(f"Supertonic 不可用：{exc}") from exc
-        path.write_bytes(data)
+        assert data is not None
+        return data, engine
+
+
+async def synthesize(text: str, voice: str = "F5", speed: float | None = None) -> dict:
+    """返回 {path, seconds, engine, cached, speed}。
+
+    speed 取 0.5–1.5；1.0 直接用原始音频，其它值用 ffmpeg atempo 变速（保音高）。
+    """
+    cleaned = clean_text(text)
+    speed = normalize_speed(speed if speed is not None else default_speed())
+    path = cache_path(cleaned, voice, speed)
+    if path.exists() and path.stat().st_size > 200:
+        return {
+            "path": path,
+            "seconds": wav_seconds(path.read_bytes()[:400000]),
+            "engine": "cache",
+            "cached": True,
+            "speed": speed,
+        }
+
+    base_path = cache_path(cleaned, voice, 1.0)
+    if base_path.exists() and base_path.stat().st_size > 200:
+        base, engine = base_path.read_bytes(), "cache"
+    else:
+        base, engine = await _synth_raw(cleaned, voice)
+        base_path.write_bytes(base)
+
+    if abs(speed - 1.0) < 0.005:
+        data = base
+    else:
+        try:
+            data = await _atempo(base, speed)
+            engine = f"{engine}+atempo"
+        except TTSError:
+            # 没装 ffmpeg / 变速失败：退回原始语速，不阻断发音
+            data = base
+            engine = f"{engine}+no-atempo"
+
+    path.write_bytes(data)
     return {
         "path": path,
         "seconds": wav_seconds(data),
         "engine": engine,
         "cached": False,
+        "speed": speed,
     }
 
 
@@ -289,6 +372,7 @@ async def status() -> dict:
         "alive": alive,
         "model_loaded": loaded,
         "model_id": TTS_MODEL_ID,
+        "speed": default_speed(),
         "autostart": AUTOSTART,
         "cache": cache_stats(),
     }
@@ -339,9 +423,10 @@ def schedule_prewarm(texts, voice: str | None = None) -> int:
 
 async def _prewarm(texts: list[str], voice: str | None) -> None:
     v = (voice or default_voice()).upper()
+    sp = default_speed()
     for text in texts:
         try:
-            await synthesize(text, v)
+            await synthesize(text, v, sp)
         except TTSError:
             continue
 

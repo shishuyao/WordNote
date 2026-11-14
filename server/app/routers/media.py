@@ -18,13 +18,14 @@ VOICE_IDS = {v["id"] for v in VOICES}
 async def speak(
     text: str = Query(min_length=1, max_length=400),
     voice: str | None = Query(default=None),
+    speed: float | None = Query(default=None, ge=0.5, le=1.5),
     user: dict = Depends(current_user),
 ) -> FileResponse:
     voice = (voice or get_setting("voice") or DEFAULT_VOICE or "F5").upper()
     if voice not in VOICE_IDS:
         voice = "F5"
     try:
-        result = await tts.synthesize(text, voice)
+        result = await tts.synthesize(text, voice, speed)
     except tts.TTSError as exc:
         raise HTTPException(status_code=503, detail=str(exc))
     headers = {
@@ -32,6 +33,7 @@ async def speak(
         "X-TTS-Engine": result["engine"],
         "X-Audio-Seconds": str(result["seconds"]),
         "X-TTS-Voice": voice,
+        "X-TTS-Speed": str(result["speed"]),
     }
     return FileResponse(result["path"], media_type="audio/wav", headers=headers)
 
