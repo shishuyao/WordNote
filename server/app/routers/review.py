@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 from ..db import query, query_one
 from ..security import current_user
 from ..services.words import touch_review, word_dict, word_summary
+from .sentences import sentence_dict
 
 router = APIRouter(prefix="/api", tags=["review"])
 
@@ -57,14 +58,8 @@ def queue(
             "SELECT * FROM sentences WHERE due_at IS NULL OR due_at<=? ORDER BY RANDOM() LIMIT ?",
             (now, limit),
         )
-        import json
-
         for row in rows:
-            d = dict(row)
-            try:
-                d["tags"] = json.loads(d.get("tags") or "[]")
-            except ValueError:
-                d["tags"] = []
+            d = sentence_dict(row)  # 带 annotations（划线词），前端据此显示下划线与个数
             d["kind"] = "sentence"
             items.append(d)
 

@@ -347,6 +347,10 @@ wordnote/
 # UI 截图与主题回归（需要 Playwright：pnpm add -D playwright && npx playwright install chromium）
 cd web && node shots.mjs
 node test-theme.mjs
+
+# 本地 E2E 用的临时账号工具（直接写 SQLite，绕过首启设置流程）
+python scripts/dev_make_user.py __dev__ test123456   # 建/重置临时账号
+python scripts/dev_drop_user.py __dev__              # 用完删掉
 ```
 
 ### 已知限制与安全边界
