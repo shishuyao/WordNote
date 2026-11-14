@@ -231,8 +231,53 @@ export default function Review() {
                     <Eye size={14} /> 翻面看译文（空格）
                   </button>
                 ) : (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-5 rounded-xl border hairline sunken px-4 py-3">
-                    <p className="text-[13.5px] leading-[1.9] text-paper-300">{current.translation || "（这句没有译文）"}</p>
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    <div className="mt-5 rounded-xl border hairline sunken px-4 py-3">
+                      <p className="text-[13.5px] leading-[1.9] text-paper-300">
+                        {current.translation || "（这句没有译文）"}
+                      </p>
+                    </div>
+
+                    {(current.annotations ?? []).filter((a) => a.headword).length > 0 && (
+                      <div className="mt-4">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="label">划线词</span>
+                          <span className="text-[11px] text-paper-600">喇叭可直接听发音</span>
+                        </div>
+                        <ul className="grid max-h-[60vh] grid-cols-1 gap-2 overflow-y-auto pr-1 sm:grid-cols-2">
+                          {(current.annotations ?? [])
+                            .filter((a) => a.headword)
+                            .map((a) => {
+                              const ph = a.phonetic_us || a.phonetic_uk || "";
+                              return (
+                                <li key={a.id ?? a.surface} className="rounded-xl border hairline px-3 py-2">
+                                  <div className="flex items-baseline gap-2">
+                                    <span className="serif text-[15px] text-amber-glow">{a.headword}</span>
+                                    {ph && (
+                                      <span className="text-[11px] text-paper-500">
+                                        /{String(ph).replace(/^\/|\/$/g, "")}/
+                                      </span>
+                                    )}
+                                    {a.pos && <span className="chip py-0 text-[10px]">{a.pos}</span>}
+                                    <span className="ml-auto shrink-0">
+                                      <PlayButton text={a.headword!} voice={voice} size="sm" />
+                                    </span>
+                                  </div>
+                                  {a.meaning_zh && (
+                                    <p className="mt-1 line-clamp-2 text-[12.5px] leading-[1.75] text-paper-400">
+                                      {a.meaning_zh}
+                                    </p>
+                                  )}
+                                  {a.surface &&
+                                    a.surface.toLowerCase() !== (a.headword || "").toLowerCase() && (
+                                      <p className="mt-0.5 text-[10.5px] text-paper-600">原词：{a.surface}</p>
+                                    )}
+                                </li>
+                              );
+                            })}
+                        </ul>
+                      </div>
+                    )}
                   </motion.div>
                 )}
               </div>
